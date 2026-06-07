@@ -491,8 +491,8 @@ public class Studentinfosystem extends JFrame {
         if (!lastName.matches("[a-zA-Z ]+"))            return false;
         if (firstName.trim().length() < 2)              return false;
         if (lastName.trim().length() < 2)               return false;
-        if (!prog.matches("[A-Z0-9]+"))                 return false;
-        if (college.isEmpty())                          return false;
+        if (!prog.matches("[A-Z0-9]+") && !prog.equals("NOT ENROLLED")) return false;
+        if (college.isEmpty())                         return false;
         if (!year.matches("[1-5]"))                     return false;
         if (!gender.equalsIgnoreCase("M")
          && !gender.equalsIgnoreCase("F"))              return false;
@@ -834,12 +834,13 @@ public class Studentinfosystem extends JFrame {
         scroll.getViewport().setBackground(SURFACE);
 
         JButton addBtn    = accentButton("Add");
+        JButton editBtn   = accentButton("Edit");
         JButton deleteBtn = ghostButton("Delete");
         JButton closeBtn  = ghostButton("Close");
         JPanel btnPanel   = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 10));
         btnPanel.setBackground(BG);
         btnPanel.setBorder(new MatteBorder(1, 0, 0, 0, BORDER_COL));
-        btnPanel.add(addBtn); btnPanel.add(deleteBtn); btnPanel.add(closeBtn);
+        btnPanel.add(addBtn); btnPanel.add(editBtn); btnPanel.add(deleteBtn); btnPanel.add(closeBtn);
 
         addBtn.addActionListener(e -> {
             String code  = codeField.getText().trim().toUpperCase();
@@ -870,23 +871,149 @@ public class Studentinfosystem extends JFrame {
             codeField.setText(""); nameField.setText("");
         });
 
+        // Edit: open a popup dialog pre-filled with selected college
+        editBtn.addActionListener(e -> {
+            int row = collTable.getSelectedRow();
+            if (row == -1) {
+                JOptionPane.showMessageDialog(dialog, "Select a college row to edit first."); return;
+            }
+            int modelRow = collTable.convertRowIndexToModel(row);
+            String oldCode  = (String) collModel.getValueAt(modelRow, 0);
+            String oldCname = (String) collModel.getValueAt(modelRow, 1);
+
+            // ---- Edit College popup ----
+            JDialog editDlg = new JDialog(dialog, "Edit College — " + oldCode, true);
+            editDlg.setSize(400, 260);
+            editDlg.setLocationRelativeTo(dialog);
+            editDlg.setLayout(new BorderLayout());
+            editDlg.getContentPane().setBackground(BG);
+
+            // Header bar (same style as student edit)
+            JPanel hdr = new JPanel(new BorderLayout());
+            hdr.setBackground(ACCENT);
+            hdr.setBorder(BorderFactory.createEmptyBorder(10, 18, 10, 18));
+            JLabel hdrLbl = new JLabel("Editing College:  " + oldCode + "  ·  " + oldCname);
+            hdrLbl.setFont(FONT_BTN);
+            hdrLbl.setForeground(Color.WHITE);
+            hdr.add(hdrLbl, BorderLayout.WEST);
+
+            // Form grid
+            JTextField eCode  = styledField();
+            JTextField eCname = styledField();
+            eCode .setText(oldCode);
+            eCname.setText(oldCname);
+
+            JPanel grid = new JPanel(new GridBagLayout());
+            grid.setBackground(SURFACE);
+            grid.setBorder(BorderFactory.createEmptyBorder(16, 24, 16, 24));
+            GridBagConstraints egbc = new GridBagConstraints();
+            egbc.insets = new Insets(8, 6, 8, 6);
+            egbc.fill   = GridBagConstraints.HORIZONTAL;
+            egbc.anchor = GridBagConstraints.WEST;
+
+            egbc.gridx = 0; egbc.weightx = 0;
+            egbc.gridy = 0; grid.add(styledLabel("College Code"), egbc);
+            egbc.gridy = 1; grid.add(styledLabel("College Name"), egbc);
+
+            egbc.gridx = 1; egbc.weightx = 1.0;
+            egbc.gridy = 0; grid.add(eCode,  egbc);
+            egbc.gridy = 1; grid.add(eCname, egbc);
+
+            // Buttons
+            JButton saveBtn   = accentButton("Save");
+            JButton cancelBtn = ghostButton("Cancel");
+            JPanel btnP = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 10));
+            btnP.setBackground(BG);
+            btnP.setBorder(new MatteBorder(1, 0, 0, 0, BORDER_COL));
+            btnP.add(saveBtn);
+            btnP.add(cancelBtn);
+
+            saveBtn.addActionListener(ev -> {
+                String newCode  = eCode .getText().trim().toUpperCase();
+                String newCname = eCname.getText().trim();
+                if (newCode.isEmpty() || newCname.isEmpty()) {
+                    JOptionPane.showMessageDialog(editDlg, "Please fill in all fields."); return;
+                }
+                if (!newCode.matches("[A-Z]+")) {
+                    JOptionPane.showMessageDialog(editDlg, "College Code must contain letters only!"); return;
+                }
+                if (newCode.length() < 2 || newCode.length() > 10) {
+                    JOptionPane.showMessageDialog(editDlg, "College Code must be 2–10 letters long!"); return;
+                }
+                if (!newCname.matches("[a-zA-Z ]+")) {
+                    JOptionPane.showMessageDialog(editDlg, "College Name must contain letters only!"); return;
+                }
+                if (newCname.trim().length() < 5) {
+                    JOptionPane.showMessageDialog(editDlg, "College Name is too short!"); return;
+                }
+                List<College> clist = readColleges();
+                if (!newCode.equals(oldCode) && clist.stream().anyMatch(c -> c.getCode().equals(newCode))) {
+                    JOptionPane.showMessageDialog(editDlg, "College code already exists!"); return;
+                }
+
+                // Update college record
+                for (College c : clist) {
+                    if (c.getCode().equals(oldCode)) { c.setCode(newCode); c.setName(newCname); break; }
+                }
+                writeColleges(clist);
+
+                // Cascade to programs
+                List<Program> plist = readPrograms();
+                for (Program p : plist)
+                    if (p.getCollege().equals(oldCode)) p.setCollege(newCode);
+                writePrograms(plist);
+
+                // Cascade to students
+                List<Student> slist = readStudents();
+                for (Student s : slist)
+                    if (s.getCollege().equals(oldCode)) s.setCollege(newCode);
+                writeStudents(slist);
+
+                // Refresh college table
+                collModel.setRowCount(0);
+                for (College c : clist) collModel.addRow(c.toArray());
+                codeField.setText(""); nameField.setText("");
+                loadStudents();
+                editDlg.dispose();
+                JOptionPane.showMessageDialog(dialog, "College updated and cascaded successfully!");
+            });
+
+            cancelBtn.addActionListener(ev -> editDlg.dispose());
+
+            editDlg.add(hdr,    BorderLayout.NORTH);
+            editDlg.add(grid,   BorderLayout.CENTER);
+            editDlg.add(btnP,   BorderLayout.SOUTH);
+            editDlg.setVisible(true);
+        });
+
         deleteBtn.addActionListener(e -> {
             String code = codeField.getText().trim().toUpperCase();
             if (code.isEmpty()) {
                 JOptionPane.showMessageDialog(dialog, "Select a college to delete."); return;
             }
-            // Warn if programs still use this college
             long inUse = readPrograms().stream()
                 .filter(p -> p.getCollege().equalsIgnoreCase(code))
                 .count();
-            if (inUse > 0) {
-                JOptionPane.showMessageDialog(dialog,
-                    "Cannot delete — " + inUse + " program(s) still use this college.\nRemove those programs first.");
-                return;
-            }
+            String warning = inUse > 0
+                ? "This will set " + inUse + " program(s) college to N/A, and affected students' college to N/A."
+                : "Are you sure?";
             int confirm = JOptionPane.showConfirmDialog(dialog,
-                "Delete college " + code + "?", "Confirm", JOptionPane.YES_NO_OPTION);
+                "Delete college " + code + "?\n" + warning, "Confirm", JOptionPane.YES_NO_OPTION);
             if (confirm != JOptionPane.YES_OPTION) return;
+
+            // Cascade: set college to "N/A" on programs that used this college
+            List<Program> plist = readPrograms();
+            for (Program p : plist) {
+                if (p.getCollege().equalsIgnoreCase(code)) p.setCollege("N/A");
+            }
+            writePrograms(plist);
+
+            // Cascade: set college to "N/A" on students that belonged to this college
+            List<Student> slist = readStudents();
+            for (Student s : slist) {
+                if (s.getCollege().equalsIgnoreCase(code)) s.setCollege("N/A");
+            }
+            writeStudents(slist);
 
             List<College> list = readColleges();
             list.removeIf(c -> c.getCode().equals(code));
@@ -894,6 +1021,7 @@ public class Studentinfosystem extends JFrame {
             collModel.setRowCount(0);
             for (College c : list) collModel.addRow(c.toArray());
             codeField.setText(""); nameField.setText("");
+            loadStudents();
         });
 
         closeBtn.addActionListener(e -> dialog.dispose());
@@ -987,12 +1115,13 @@ public class Studentinfosystem extends JFrame {
         scroll.getViewport().setBackground(SURFACE);
 
         JButton addBtn    = accentButton("Add");
+        JButton editBtn   = accentButton("Edit");
         JButton deleteBtn = ghostButton("Delete");
         JButton closeBtn  = ghostButton("Close");
         JPanel btnPanel   = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 10));
         btnPanel.setBackground(BG);
         btnPanel.setBorder(new MatteBorder(1, 0, 0, 0, BORDER_COL));
-        btnPanel.add(addBtn); btnPanel.add(deleteBtn); btnPanel.add(closeBtn);
+        btnPanel.add(addBtn); btnPanel.add(editBtn); btnPanel.add(deleteBtn); btnPanel.add(closeBtn);
 
         addBtn.addActionListener(e -> {
             Object sel = collegeCombo.getSelectedItem();
@@ -1030,14 +1159,165 @@ public class Studentinfosystem extends JFrame {
             loadProgramChoices();
         });
 
+        // Edit: open a popup dialog pre-filled with selected program
+        editBtn.addActionListener(e -> {
+            int row = progTable.getSelectedRow();
+            if (row == -1) {
+                JOptionPane.showMessageDialog(dialog, "Select a program row to edit first."); return;
+            }
+            int modelRow = progTable.convertRowIndexToModel(row);
+            String oldCollege = (String) progModel.getValueAt(modelRow, 0);
+            String oldCode    = (String) progModel.getValueAt(modelRow, 1);
+            String oldPname   = (String) progModel.getValueAt(modelRow, 2);
+
+            // ---- Edit Program popup ----
+            JDialog editDlg = new JDialog(dialog, "Edit Program — " + oldCode, true);
+            editDlg.setSize(420, 300);
+            editDlg.setLocationRelativeTo(dialog);
+            editDlg.setLayout(new BorderLayout());
+            editDlg.getContentPane().setBackground(BG);
+
+            // Header bar (same style as student edit)
+            JPanel hdr = new JPanel(new BorderLayout());
+            hdr.setBackground(ACCENT);
+            hdr.setBorder(BorderFactory.createEmptyBorder(10, 18, 10, 18));
+            JLabel hdrLbl = new JLabel("Editing Program:  " + oldCode + "  ·  " + oldPname);
+            hdrLbl.setFont(FONT_BTN);
+            hdrLbl.setForeground(Color.WHITE);
+            hdr.add(hdrLbl, BorderLayout.WEST);
+
+            // Form fields
+            JTextField eCode  = styledField();
+            JTextField ePname = styledField();
+            JComboBox<String> eCollege = styledCombo();
+            eCode .setText(oldCode);
+            ePname.setText(oldPname);
+
+            // Populate college combo and pre-select current college
+            for (College c : readColleges())
+                eCollege.addItem(c.getCode() + " - " + c.getName());
+            for (int i = 0; i < eCollege.getItemCount(); i++) {
+                if (eCollege.getItemAt(i).startsWith(oldCollege)) {
+                    eCollege.setSelectedIndex(i); break;
+                }
+            }
+
+            JPanel grid = new JPanel(new GridBagLayout());
+            grid.setBackground(SURFACE);
+            grid.setBorder(BorderFactory.createEmptyBorder(16, 24, 16, 24));
+            GridBagConstraints egbc = new GridBagConstraints();
+            egbc.insets = new Insets(8, 6, 8, 6);
+            egbc.fill   = GridBagConstraints.HORIZONTAL;
+            egbc.anchor = GridBagConstraints.WEST;
+
+            egbc.gridx = 0; egbc.weightx = 0;
+            egbc.gridy = 0; grid.add(styledLabel("Program Code"),  egbc);
+            egbc.gridy = 1; grid.add(styledLabel("Program Name"),  egbc);
+            egbc.gridy = 2; grid.add(styledLabel("College"),       egbc);
+
+            egbc.gridx = 1; egbc.weightx = 1.0;
+            egbc.gridy = 0; grid.add(eCode,    egbc);
+            egbc.gridy = 1; grid.add(ePname,   egbc);
+            egbc.gridy = 2; grid.add(eCollege, egbc);
+
+            // Buttons
+            JButton saveBtn   = accentButton("Save");
+            JButton cancelBtn = ghostButton("Cancel");
+            JPanel btnP = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 10));
+            btnP.setBackground(BG);
+            btnP.setBorder(new MatteBorder(1, 0, 0, 0, BORDER_COL));
+            btnP.add(saveBtn);
+            btnP.add(cancelBtn);
+
+            saveBtn.addActionListener(ev -> {
+                String newCode        = eCode .getText().trim().toUpperCase();
+                String newPname       = ePname.getText().trim();
+                Object collSel        = eCollege.getSelectedItem();
+                String newCollegeCode = collSel != null ? collSel.toString().split(" - ")[0] : "";
+
+                if (newCode.isEmpty() || newPname.isEmpty() || newCollegeCode.isEmpty()) {
+                    JOptionPane.showMessageDialog(editDlg, "Please fill in all fields."); return;
+                }
+                if (!newCode.matches("[A-Z]+")) {
+                    JOptionPane.showMessageDialog(editDlg, "Program Code must contain letters only!"); return;
+                }
+                if (newCode.length() < 2 || newCode.length() > 10) {
+                    JOptionPane.showMessageDialog(editDlg, "Program Code must be 2–10 letters long!"); return;
+                }
+                if (!newPname.matches("[a-zA-Z ]+")) {
+                    JOptionPane.showMessageDialog(editDlg, "Program Name must contain letters only!"); return;
+                }
+                if (newPname.trim().length() < 5) {
+                    JOptionPane.showMessageDialog(editDlg, "Program Name is too short!"); return;
+                }
+                List<Program> plist = readPrograms();
+                if (!newCode.equals(oldCode) && plist.stream().anyMatch(p -> p.getCode().equals(newCode))) {
+                    JOptionPane.showMessageDialog(editDlg, "Program code already exists!"); return;
+                }
+
+                // Update program record
+                for (Program p : plist) {
+                    if (p.getCode().equals(oldCode)) {
+                        p.setCode(newCode);
+                        p.setName(newPname);
+                        p.setCollege(newCollegeCode);
+                        break;
+                    }
+                }
+                writePrograms(plist);
+
+                // Cascade to students
+                List<Student> slist = readStudents();
+                for (Student s : slist) {
+                    if (s.getProgram().equals(oldCode)) {
+                        s.setProgram(newCode);
+                        s.setCollege(newCollegeCode);
+                    }
+                }
+                writeStudents(slist);
+
+                // Refresh program table
+                progModel.setRowCount(0);
+                for (Program p : plist) progModel.addRow(p.toArray());
+                codeField.setText(""); nameField.setText("");
+                loadProgramChoices();
+                loadStudents();
+                editDlg.dispose();
+                JOptionPane.showMessageDialog(dialog, "Program updated and cascaded successfully!");
+            });
+
+            cancelBtn.addActionListener(ev -> editDlg.dispose());
+
+            editDlg.add(hdr,    BorderLayout.NORTH);
+            editDlg.add(grid,   BorderLayout.CENTER);
+            editDlg.add(btnP,   BorderLayout.SOUTH);
+            editDlg.setVisible(true);
+        });
+
         deleteBtn.addActionListener(e -> {
             String code = codeField.getText().trim().toUpperCase();
             if (code.isEmpty()) {
                 JOptionPane.showMessageDialog(dialog, "Select a program to delete."); return;
             }
+            long inUse = readStudents().stream()
+                .filter(s -> s.getProgram().equalsIgnoreCase(code))
+                .count();
+            String warning = inUse > 0
+                ? "This will set " + inUse + " student(s) program to NOT ENROLLED."
+                : "Are you sure?";
             int confirm = JOptionPane.showConfirmDialog(dialog,
-                "Delete program " + code + "?", "Confirm", JOptionPane.YES_NO_OPTION);
+                "Delete program " + code + "?\n" + warning, "Confirm", JOptionPane.YES_NO_OPTION);
             if (confirm != JOptionPane.YES_OPTION) return;
+
+            // Cascade: set affected students' program to "NOT ENROLLED" and college to "N/A"
+            List<Student> slist = readStudents();
+            for (Student s : slist) {
+                if (s.getProgram().equalsIgnoreCase(code)) {
+                    s.setProgram("NOT ENROLLED");
+                    s.setCollege("N/A");
+                }
+            }
+            writeStudents(slist);
 
             List<Program> list = readPrograms();
             list.removeIf(p -> p.getCode().equals(code));
@@ -1046,6 +1326,7 @@ public class Studentinfosystem extends JFrame {
             for (Program p : list) progModel.addRow(p.toArray());
             codeField.setText(""); nameField.setText("");
             loadProgramChoices();
+            loadStudents();
         });
 
         closeBtn.addActionListener(e -> dialog.dispose());

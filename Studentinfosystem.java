@@ -154,6 +154,7 @@ public class Studentinfosystem extends JFrame {
         header.setForeground(Color.WHITE);
         header.setPreferredSize(new Dimension(0, 34));
         header.setBorder(BorderFactory.createEmptyBorder());
+        header.setReorderingAllowed(false);
         ((DefaultTableCellRenderer) header.getDefaultRenderer())
             .setHorizontalAlignment(SwingConstants.LEFT);
 
@@ -815,6 +816,7 @@ public class Studentinfosystem extends JFrame {
         ch.setBackground(ACCENT);
         ch.setForeground(Color.WHITE);
         ch.setPreferredSize(new Dimension(0, 32));
+        ch.setReorderingAllowed(false);
 
         // Load existing colleges
         for (College c : readColleges()) collModel.addRow(c.toArray());
@@ -1090,6 +1092,7 @@ public class Studentinfosystem extends JFrame {
             ph.setBackground(ACCENT);
             ph.setForeground(Color.WHITE);
             ph.setPreferredSize(new Dimension(0, 32));
+            ph.setReorderingAllowed(false);
 
         for (Program p : readPrograms()) progModel.addRow(p.toArray());
 

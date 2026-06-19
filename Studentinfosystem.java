@@ -807,9 +807,12 @@ public class Studentinfosystem extends JFrame {
         collTable.setSelectionBackground(new Color(0xD4EE85));
         collTable.setSelectionForeground(TEXT_DARK);
         collTable.setBackground(SURFACE);
-        collTable.setAutoCreateRowSorter(true);
+        collTable.setAutoCreateRowSorter(false);
         collTable.getColumnModel().getColumn(0).setPreferredWidth(80);
         collTable.getColumnModel().getColumn(1).setPreferredWidth(360);
+
+        TableRowSorter<DefaultTableModel> collSorter = new TableRowSorter<>(collModel);
+        collTable.setRowSorter(collSorter);
 
         JTableHeader ch = collTable.getTableHeader();
         ch.setFont(FONT_HEADER);
@@ -834,6 +837,27 @@ public class Studentinfosystem extends JFrame {
         JScrollPane scroll = new JScrollPane(collTable);
         scroll.setBorder(BorderFactory.createEmptyBorder());
         scroll.getViewport().setBackground(SURFACE);
+
+        // ---- Search bar ----
+        JTextField collSearch = styledField();
+        collSearch.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            private void filter() {
+                String kw = collSearch.getText().trim();
+                if (kw.isEmpty()) {
+                    collSorter.setRowFilter(null);
+                } else {
+                    collSorter.setRowFilter(RowFilter.regexFilter("(?i)" + java.util.regex.Pattern.quote(kw)));
+                }
+            }
+            public void insertUpdate(javax.swing.event.DocumentEvent e)  { filter(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e)  { filter(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { filter(); }
+        });
+        JPanel collSearchRow = new JPanel(new BorderLayout(8, 0));
+        collSearchRow.setBackground(BG);
+        collSearchRow.setBorder(BorderFactory.createEmptyBorder(10, 16, 6, 16));
+        collSearchRow.add(styledLabel("Search:"), BorderLayout.WEST);
+        collSearchRow.add(collSearch, BorderLayout.CENTER);
 
         JButton addBtn    = accentButton("Add");
         JButton editBtn   = accentButton("Edit");
@@ -1028,9 +1052,13 @@ public class Studentinfosystem extends JFrame {
 
         closeBtn.addActionListener(e -> dialog.dispose());
 
-        dialog.add(form,     BorderLayout.NORTH);
-        dialog.add(scroll,   BorderLayout.CENTER);
-        dialog.add(btnPanel, BorderLayout.SOUTH);
+        dialog.add(form,        BorderLayout.NORTH);
+        JPanel collCenter = new JPanel(new BorderLayout());
+        collCenter.setBackground(BG);
+        collCenter.add(collSearchRow, BorderLayout.NORTH);
+        collCenter.add(scroll,        BorderLayout.CENTER);
+        dialog.add(collCenter,  BorderLayout.CENTER);
+        dialog.add(btnPanel,    BorderLayout.SOUTH);
         dialog.setVisible(true);
     }
 
@@ -1082,10 +1110,13 @@ public class Studentinfosystem extends JFrame {
         progTable.setSelectionBackground(new Color(0xD4EE85));
         progTable.setSelectionForeground(TEXT_DARK);
         progTable.setBackground(SURFACE);
-        progTable.setAutoCreateRowSorter(true);
+        progTable.setAutoCreateRowSorter(false);
         progTable.getColumnModel().getColumn(0).setPreferredWidth(180);
         progTable.getColumnModel().getColumn(1).setPreferredWidth(80);
         progTable.getColumnModel().getColumn(2).setPreferredWidth(260);
+
+        TableRowSorter<DefaultTableModel> progSorter = new TableRowSorter<>(progModel);
+        progTable.setRowSorter(progSorter);
 
         JTableHeader ph = progTable.getTableHeader();
             ph.setFont(FONT_HEADER);
@@ -1116,6 +1147,27 @@ public class Studentinfosystem extends JFrame {
         JScrollPane scroll = new JScrollPane(progTable);
         scroll.setBorder(BorderFactory.createEmptyBorder());
         scroll.getViewport().setBackground(SURFACE);
+
+        // ---- Search bar ----
+        JTextField progSearch = styledField();
+        progSearch.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            private void filter() {
+                String kw = progSearch.getText().trim();
+                if (kw.isEmpty()) {
+                    progSorter.setRowFilter(null);
+                } else {
+                    progSorter.setRowFilter(RowFilter.regexFilter("(?i)" + java.util.regex.Pattern.quote(kw)));
+                }
+            }
+            public void insertUpdate(javax.swing.event.DocumentEvent e)  { filter(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e)  { filter(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { filter(); }
+        });
+        JPanel progSearchRow = new JPanel(new BorderLayout(8, 0));
+        progSearchRow.setBackground(BG);
+        progSearchRow.setBorder(BorderFactory.createEmptyBorder(10, 16, 6, 16));
+        progSearchRow.add(styledLabel("Search:"), BorderLayout.WEST);
+        progSearchRow.add(progSearch, BorderLayout.CENTER);
 
         JButton addBtn    = accentButton("Add");
         JButton editBtn   = accentButton("Edit");
@@ -1335,7 +1387,11 @@ public class Studentinfosystem extends JFrame {
         closeBtn.addActionListener(e -> dialog.dispose());
 
         dialog.add(form,     BorderLayout.NORTH);
-        dialog.add(scroll,   BorderLayout.CENTER);
+        JPanel progCenter = new JPanel(new BorderLayout());
+        progCenter.setBackground(BG);
+        progCenter.add(progSearchRow, BorderLayout.NORTH);
+        progCenter.add(scroll,        BorderLayout.CENTER);
+        dialog.add(progCenter, BorderLayout.CENTER);
         dialog.add(btnPanel, BorderLayout.SOUTH);
         dialog.setVisible(true);
     }
